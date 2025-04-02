@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pendamping Memasak</title>
+    <style>
+        /* Gaya dasar */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        /* Container utama */
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Form input */
+        .input-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        #stepInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        }
+        
+        #timeInput {
+            width: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-left: none;
+            text-align: center;
+        }
+        
+        #addButton {
+            padding: 10px 15px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        #addButton:hover {
+            background-color: #2ecc71;
+        }
+        
+        /* Daftar langkah */
+        #stepsList {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        .step-item {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .step-item.active {
+            border-left-color: #27ae60;
+            background-color: #e8f5e9;
+        }
+        
+        .step-item.expired {
+            border-left-color: #e74c3c;
+            background-color: #ffebee;
+        }
+        
+        .step-text {
+            flex: 1;
+        }
+        
+        .timer-container {
+            width: 150px;
+            height: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-left: 10px;
+        }
+        
+        .timer-progress {
+            height: 100%;
+            width: 100%;
+            background-color: #27ae60;
+            transition: width 1s linear, background-color 0.3s;
+        }
+        
+        .time-display {
+            margin-left: 10px;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: right;
+        }
+        
+        /* Tombol kontrol */
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        
+        .control-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        #startButton {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        #startButton:hover {
+            background-color: #2980b9;
+        }
+        
+        #resetButton {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        #resetButton:hover {
+            background-color: #c0392b;
+        }
+        
+        /* Responsif */
+        @media (max-width: 600px) {
+            .input-group {
+                flex-direction: column;
+            }
+            
+            #stepInput, #timeInput, #addButton {
+                width: 100%;
+                border-radius: 4px;
+                margin-bottom: 5px;
+            }
+            
+            .step-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .timer-container {
+                width: 100%;
+                margin: 10px 0 0 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Pendamping Memasak</h1>
+        
+        <div class="input-group">
+            <input type="text" id="stepInput" placeholder="Masukkan langkah memasak...">
+            <input type="number" id="timeInput" placeholder="Menit" min="1">
+            <button id="addButton">Tambah</button>
+        </div>
+        
+        <ul id="stepsList">
+            <!-- Daftar langkah akan muncul di sini -->
+        </ul>
+        
+        <div class="controls">
+            <button id="startButton" class="control-button">Mulai Memasak</button>
+            <button id="resetButton" class="control-button">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        // Variabel global
+        let steps = [];
+        let currentStepIndex = -1;
+        let timerInterval = null;
+        let remainingTime = 0;
+        
+        // Elemen DOM
+        const stepInput = document.getElementById('stepInput');
+        const timeInput = document.getElementById('timeInput');
+        const addButton = document.getElementById('addButton');
+        const stepsList = document.getElementById('stepsList');
+        const startButton = document.getElementById('startButton');
+        const resetButton = document.getElementById('resetButton');
+        
+        // Event listeners
+        addButton.addEventListener('click', addStep);
+        startButton.addEventListener('click', startCooking);
+        resetButton.addEventListener('click', resetAll);
+        
+        // Fungsi untuk menambahkan langkah baru
+        function addStep() {
+            const stepText = stepInput.value.trim();
+            const time = parseInt(timeInput.value);
+            
+            if (stepText && time > 0) {
+                const step = {
+                    text: stepText,
+                    minutes: time,
+                    seconds: time * 60,
+                    remaining: time * 60
+                };
+                
+                steps.push(step);
+                renderSteps();
+                
+                // Reset input
+                stepInput.value = '';
+                timeInput.value = '';
+                stepInput.focus();
+            } else {
+                alert('Harap isi langkah dan waktu dengan benar!');
+            }
+        }
+        
+        // Fungsi untuk menampilkan daftar langkah
+        function renderSteps() {
+            stepsList.innerHTML = '';
+            
+            steps.forEach((step, index) => {
+                const li = document.createElement('li');
+                li.className = 'step-item' + 
+                    (index === currentStepIndex ? ' active' : '') + 
+                    (index < currentStepIndex ? ' expired' : '');
+                
+                li.innerHTML = `
+                    <div class="step-text">${index + 1}. ${step.text}</div>
+                    <div class="time-display">${formatTime(step.remaining)}</div>
+                    <div class="timer-container">
+                        <div class="timer-progress" 
+                             style="width: ${index === currentStepIndex ? (step.remaining / step.seconds * 100) : 100}%;
+                                    background-color: ${index === currentStepIndex ? '#27ae60' : (index < currentStepIndex ? '#e74c3c' : '#27ae60')}">
+                        </div>
+                    </div>
+                `;
+                
+                stepsList.appendChild(li);
+            });
+        }
+        
+        // Fungsi untuk memulai proses memasak
+        function startCooking() {
+            if (steps.length === 0) {
+                alert('Tambahkan langkah-langkah memasak terlebih dahulu!');
+                return;
+            }
+            
+            if (currentStepIndex === -1) {
+                // Mulai dari langkah pertama
+                currentStepIndex = 0;
+                startTimerForCurrentStep();
+            } else if (timerInterval === null) {
+                // Lanjutkan timer yang di-pause
+                startTimerForCurrentStep();
+            }
+            
+            startButton.textContent = 'Jeda';
+            startButton.removeEventListener('click', startCooking);
+            startButton.addEventListener('click', pauseTimer);
+        }
+        
+        // Fungsi untuk memulai timer langkah saat ini
+        function startTimerForCurrentStep() {
+            const currentStep = steps[currentStepIndex];
+            remainingTime = currentStep.remaining;
+            
+            timerInterval = setInterval(() => {
+                remainingTime--;
+                currentStep.remaining = remainingTime;
+                
+                // Update tampilan
+                renderSteps();
+                
+                // Cek jika waktu habis
+                if (remainingTime <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    
+                    // Pindah ke langkah berikutnya jika ada
+                    if (currentStepIndex < steps.length - 1) {
+                        currentStepIndex++;
+                        startTimerForCurrentStep();
+                    } else {
+                        // Semua langkah selesai
+                        currentStepIndex = steps.length;
+                        startButton.style.display = 'none';
+                        alert('Selamat! Anda telah menyelesaikan semua langkah memasak!');
+                    }
+                }
+            }, 1000);
+        }
+        
+        // Fungsi untuk menjeda timer
+        function pauseTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            
+            startButton.textContent = 'Lanjutkan';
+            startButton.removeEventListener('click', pauseTimer);
+            startButton.addEventListener('click', startCooking);
+        }
+        
+        // Fungsi untuk mereset semua
+        function resetAll() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            
+            steps = [];
+            currentStepIndex = -1;
+            renderSteps();
+            
+            startButton.textContent = 'Mulai Memasak';
+            startButton.style.display = 'inline-block';
+            startButton.removeEventListener('click', pauseTimer);
+            startButton.addEventListener('click', startCooking);
+        }
+        
+        // Fungsi untuk memformat waktu (detik ke MM:SS)
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
